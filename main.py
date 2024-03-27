@@ -2,17 +2,13 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import streamlit as st
 
 # Define body fluids
 BODY_FLUIDS = ["saliva", "semen", "vaginalfluid", "urine", "blood"]
 
 # Read data
-po_df = pd.read_csv("2581_PureOnly_Report_25MAR24_NP.csv", sep=';')
-co_df = pd.read_csv("2581_CombiOnly_Report_25MAR24_NP.csv", sep=';')
-
-
+# po_df = pd.read_csv("2581_PureOnly_Report_25MAR24_NP.csv", sep=';')
 def add_protein_count_per_body_fluid(df: pd.DataFrame,
                                      samples_to_exclude: Iterable[str] = None) -> pd.DataFrame:
     # Define samples to look at
@@ -46,6 +42,18 @@ if __name__ == '__main__':
     # Set samples to exclude
     samples_to_exclude = None
 
-    # Add nr of times each protein occurs in a body fluid
-    po_df = add_protein_count_per_body_fluid(po_df, samples_to_exclude)
-    print(po_df.sort_values(by='blood', ascending=False)[['PG.ProteinAccessions', 'blood']])
+    # Upload file
+    st.header("Upload bestanden")
+    po_file = st.file_uploader(label="PureOnly bestand", type='.xlsx')
+
+    # When file uploaded
+    if po_file is not None:
+
+        # Read into dataframe
+        po_df = pd.read_excel(po_file)
+
+        # Add nr of times each protein occurs in a body fluid
+        po_df = add_protein_count_per_body_fluid(po_df, samples_to_exclude)
+
+        show_df = po_df[['PG.ProteinDescriptions'] + BODY_FLUIDS]
+        st.write(show_df)
