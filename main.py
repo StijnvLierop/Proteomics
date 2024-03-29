@@ -7,6 +7,7 @@ from analysis import filter_on_peptide_count, \
     get_identifying_proteins_per_body_fluid, \
     get_protein_differences_pure_sample_with_mixture
 from constants import BODY_FLUIDS
+from visualize import run_TSNE_pure
 
 
 if __name__ == '__main__':
@@ -38,6 +39,10 @@ if __name__ == '__main__':
             st.session_state['mixture_peptide_df'] = (
                 pd.read_excel(combi_file, sheet_name='2581_CombiOnly_Peptide'))
 
+        #
+        st.session_state["sample_columns"] = [x for x in st.session_state['pure_peptide_df'].columns
+                                              if x.endswith("PEP.Quantity")]
+
         # Filter on proteins that have at least n detected peptides per sample
         if 'proteins_per_pure_sample' not in st.session_state:
             st.session_state['proteins_per_pure_sample'] = (
@@ -53,7 +58,7 @@ if __name__ == '__main__':
             st.session_state['nr_of_samples_with_protein_per_body_fluid'] = (
                 get_protein_count_per_body_fluid(
                     st.session_state['proteins_per_pure_sample'],
-                                                 samples_to_exclude)
+                                        samples_to_exclude)
             )
 
         # Calculate information gain per protein
@@ -122,3 +127,6 @@ if __name__ == '__main__':
                      ['body fluid'] == selected_fluid]
                     .drop('body fluid', axis=1)
                 )
+
+        # Show T-SNE plot of pure samples
+        st.image(run_TSNE_pure(st.session_state["proteins_per_pure_sample"], st.session_state["sample_columns"]))
