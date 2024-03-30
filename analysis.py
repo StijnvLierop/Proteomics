@@ -2,6 +2,7 @@ import pandas as pd
 from typing import Iterable, Tuple
 import numpy as np
 import streamlit as st
+from pyparsing import results
 
 from utils import column2fluid, \
     get_sample_columns, pure_is_in_mixture
@@ -166,7 +167,7 @@ def add_gini_impurity(protein_frequency: pd.DataFrame) \
     # and #2 highest relative sample count
     protein_frequency = (protein_frequency.
                          sort_values(by=['gini impurity',
-                                     'max frequency for protein'],
+                                         'max frequency for protein'],
                                      ascending=[True, False])
                          )
 
@@ -177,7 +178,8 @@ def add_gini_impurity(protein_frequency: pd.DataFrame) \
 def get_identifying_proteins(protein_frequency: pd.DataFrame) \
         -> pd.DataFrame:
     # Check if intensity is already calculated, otherwise do this first
-    if not any(protein_frequency.columns.str.contains('mean protein intensity')):
+    if not any(
+            protein_frequency.columns.str.contains('mean protein intensity')):
         raise ValueError("Protein intensity not found in data. "
                          "Please calculate and add this first.")
 
@@ -253,7 +255,6 @@ def pure_mixture_diff(
         proteins_per_pure_sample: pd.DataFrame,
         proteins_per_mixture_sample: pd.DataFrame) \
         -> pd.DataFrame:
-
     # Create dataframe to store results
     result_df = pd.DataFrame(columns=['PG.ProteinDescriptions',
                                       'body fluid',
@@ -268,45 +269,54 @@ def pure_mixture_diff(
     # Loop over fluids
     for fluid in BODY_FLUIDS:
 
-        # Get pure samples of current fluid
-        fluid_samples = [s for s in sample_columns_pure if fluid in s]
+        # Fluid columns
+        sample_columns_pure_fluid = [c for c in sample_columns_pure if
+                                     fluid in c]
+        sample_columns_mix_fluid = [c for c in sample_columns_mixture if
+                                    fluid in c]
 
-        # Get proteins in pure samples for fluid
-        fluid_proteins = proteins_per_pure_sample.loc[
-            proteins_per_pure_sample[fluid_samples].sum(axis=1) > 0,
-            'PG.ProteinDescriptions']
+        # Filter on fluid
+        fluid_pure = proteins_per_pure_sample[
+            ['PG.ProteinDescriptions'] + sample_columns_pure_fluid].copy()
 
-        # Loop over mixture samples
-        for mix_sample in sample_columns_mixture:
+        # Get proteins that occurred in the pure samples for this fluid
+        proteins_pure = fluid_pure.loc[
+            fluid_pure.drop('PG.ProteinDescriptions', axis=1).any(axis=1),
+            'PG.ProteinDescriptions'].to_list()
 
-            # Check if mixture sample contains the pure sample
-            if fluid in mix_sample:
+        # Loop over mixtures
+        for mixture in sample_columns_mix_fluid:
 
-                # Get proteins in mix sample
-                mix_proteins = (
-                    proteins_per_mixture_sample.loc[
-                        proteins_per_mixture_sample[mix_sample],
-                        'PG.ProteinDescriptions'].to_list())
+            # Get proteins in mixture
+            proteins_mixture = proteins_per_mixture_sample.loc[proteins_per_mixture_sample[mixture], 'PG.ProteinDescriptions'].to_list()
 
-                # Check if proteins are in fluid proteins
-                # that are not in the mix sample
-                fluid_not_in_mix = [p for p in fluid_proteins
-                                   if p not in mix_proteins]
+            # Get proteins in mixture not in fluid of pure samples
+            not_in_pure_fluid = list(set(proteins_mixture) - set(proteins_pure))
 
-                # Check if proteins are in fluid proteins
-                # that are not in the pure sample
-                mix_not_in_fluid = [p for p in mix_proteins
-                                   if p not in fluid_proteins]
+            # Get proteins in fluid of pure samples not in mixture
+            not_in_mixture = list(set(proteins_pure) - set(proteins_mixture))
 
-                # Loop over results and add to dataframe (if any)
-                for p in fluid_not_in_mix:
-                    result_df.loc[len(result_df)] = \
-                        [p, fluid, mix_sample, True, False]
-                for p in mix_not_in_fluid:
-                    result_df.loc[len(result_df)] = \
-                        [p, fluid, mix_sample, False, True]
+            # Add to dataframe
+            if len(not_in_pure_fluid) > 0:
+                new_df = pd.DataFrame({'PG.ProteinDescriptions':
+                                           not_in_pure_fluid})
+                new_df['body fluid'] = fluid
+                new_df['mix sample'] = mixture
+                new_df['present in fluid'] = False
+                new_df['present in mixture'] = True
+                result_df = pd.concat([result_df, new_df])
+
+            if len(not_in_mixture) > 0:
+                new_df = pd.DataFrame({'PG.ProteinDescriptions':
+                                           not_in_mixture})
+                new_df['body fluid'] = fluid
+                new_df['mix sample'] = mixture
+                new_df['present in fluid'] = True
+                new_df['present in mixture'] = False
+                result_df = pd.concat([result_df, new_df])
 
     return result_df
+
 
 @st.cache_data
 def general_statistics(proteins_per_pure_sample: pd.DataFrame) -> pd.DataFrame:

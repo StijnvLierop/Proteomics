@@ -100,7 +100,7 @@ def test_pure_mix_diff(pure_only_file, combi_only_file):
     assert len(results[results['present in fluid'] &
                        ~results['present in mixture']]) == 4
     assert len(results[~results['present in fluid'] &
-                       results['present in mixture']]) == 43
+                       results['present in mixture']]) == 33
 
 def test_gini_impurity():
     values = np.array([5, 5])
