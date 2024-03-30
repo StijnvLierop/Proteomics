@@ -164,10 +164,11 @@ def add_gini_impurity(protein_frequency: pd.DataFrame) \
     # Sort values in protein count dataframe
     # based on #1 lowest gini impurity
     # and #2 highest relative sample count
-    protein_frequency.sort_values(by=['gini impurity',
-                                      'max frequency for protein'],
-                                  ascending=[True, False],
-                                  inplace=True)
+    protein_frequency = (protein_frequency.
+                         sort_values(by=['gini impurity',
+                                     'max frequency for protein'],
+                                     ascending=[True, False])
+                         )
 
     return protein_frequency, proteins_in_no_body_fluids
 
@@ -317,9 +318,9 @@ def pure_mixture_diff(
     return result_df
 
 @st.cache_data
-def general_statistics(prots_per_pure_sample: pd.DataFrame) -> pd.DataFrame:
+def general_statistics(proteins_per_pure_sample: pd.DataFrame) -> pd.DataFrame:
     # Get sample columns
-    sample_columns = get_sample_columns(prots_per_pure_sample)
+    sample_columns = get_sample_columns(proteins_per_pure_sample)
     fluids = [column2fluid(x) for x in sample_columns]
 
     # Nr of samples per body fluid

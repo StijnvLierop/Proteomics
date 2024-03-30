@@ -55,13 +55,6 @@ if __name__ == '__main__':
     # When file uploaded
     if pure_file is not None and combi_file is not None:
 
-        st.divider()
-
-        # Create column layout for basic info
-        gen_info_column, exclude_sample_column = st.columns(2)
-
-        st.divider()
-
         # Read data into dataframes
         (pure_pep_df_o,
          pure_prot_df_o,
@@ -71,6 +64,13 @@ if __name__ == '__main__':
         pure_pept_df = preprocess_df(pure_pep_df_o)
         mix_pep_df = preprocess_df(mix_pep_df_o)
         pure_prot_df = preprocess_df(pure_prot_df_o)
+
+        st.divider()
+
+        # Create column layout for basic info
+        gen_info_column, exclude_sample_column = st.columns(2)
+
+        st.divider()
 
         # Provide option to select samples to exclude
         with exclude_sample_column:
@@ -157,11 +157,12 @@ if __name__ == '__main__':
                                   BODY_FLUIDS,
                                   horizontal=True)
         if selected_fluid is not None:
+            # Make separate df for this fluid
+            identifying_proteins_fluid = identifying_proteins.loc[
+                identifying_proteins['body fluid'] == selected_fluid]
+
             # Give nr of identifying proteins
-            st.write(f"Found "
-                     f"{len(identifying_proteins[identifying_proteins
-                                                 ['body fluid'] ==
-                                                 selected_fluid])} "
+            st.write(f"Found {len(identifying_proteins_fluid)} "
                      f"identifying proteins for {selected_fluid}:")
 
             # Show proteins specific for certain body fluids
@@ -175,7 +176,7 @@ if __name__ == '__main__':
 
             # Get mix differences specific for fluid
             fluid_pure_mix_differences = (
-                pure_mix_differences)[
+                pure_mix_differences).loc[
                 pure_mix_differences['body fluid pure sample']
                 == selected_fluid]
 
@@ -186,7 +187,7 @@ if __name__ == '__main__':
                     f"pure sample for {selected_fluid}",
                     expanded=True):
                 st.dataframe(
-                    fluid_pure_mix_differences[
+                    fluid_pure_mix_differences.loc[
                         ~fluid_pure_mix_differences['present in pure'] &
                         fluid_pure_mix_differences['present in mixture']]
                 )
@@ -198,7 +199,7 @@ if __name__ == '__main__':
                     f"mixture for {selected_fluid}",
                     expanded=True):
                 st.dataframe(
-                    fluid_pure_mix_differences[
+                    fluid_pure_mix_differences.loc[
                         fluid_pure_mix_differences['present in pure'] &
                         ~fluid_pure_mix_differences['present in mixture']]
                 )
