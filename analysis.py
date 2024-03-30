@@ -256,32 +256,31 @@ def pure_mixture_diff(
 
     # Create dataframe to store results
     result_df = pd.DataFrame(columns=['PG.ProteinDescriptions',
-                                      'body fluid pure sample',
-                                      'pure sample',
+                                      'body fluid',
                                       'mix sample',
-                                      'present in pure',
+                                      'present in fluid',
                                       'present in mixture'])
 
     # Get sample columns
     sample_columns_pure = get_sample_columns(proteins_per_pure_sample)
     sample_columns_mixture = get_sample_columns(proteins_per_mixture_sample)
 
-    # Loop over pure samples
-    for pure_sample in sample_columns_pure:
+    # Loop over fluids
+    for fluid in BODY_FLUIDS:
 
-        # Get proteins in pure sample
-        pure_proteins = proteins_per_pure_sample.loc[
-            proteins_per_pure_sample[pure_sample],
-            'PG.ProteinDescriptions'].to_list()
+        # Get pure samples of current fluid
+        fluid_samples = [s for s in sample_columns_pure if fluid in s]
 
-        # Body fluid of pure sample
-        pure_fluid = column2fluid(pure_sample)
+        # Get proteins in pure samples for fluid
+        fluid_proteins = proteins_per_pure_sample.loc[
+            proteins_per_pure_sample[fluid_samples].sum(axis=1) > 0,
+            'PG.ProteinDescriptions']
 
         # Loop over mixture samples
         for mix_sample in sample_columns_mixture:
 
             # Check if mixture sample contains the pure sample
-            if pure_is_in_mixture(pure_sample, mix_sample):
+            if fluid in mix_sample:
 
                 # Get proteins in mix sample
                 mix_proteins = (
@@ -289,31 +288,23 @@ def pure_mixture_diff(
                         proteins_per_mixture_sample[mix_sample],
                         'PG.ProteinDescriptions'].to_list())
 
-                # Check if proteins are in the pure sample
+                # Check if proteins are in fluid proteins
                 # that are not in the mix sample
-                pure_not_in_mix = [p for p in pure_proteins
+                fluid_not_in_mix = [p for p in fluid_proteins
                                    if p not in mix_proteins]
 
-                # Check if proteins are in the mix sample
+                # Check if proteins are in fluid proteins
                 # that are not in the pure sample
-                mix_not_in_pure = [p for p in mix_proteins
-                                   if p not in pure_proteins]
-
-                # Check if proteins are in the pure sample
-                # that are also in the mix sample
-                pure_in_mix = [p for p in pure_proteins
-                               if p in mix_proteins]
+                mix_not_in_fluid = [p for p in mix_proteins
+                                   if p not in fluid_proteins]
 
                 # Loop over results and add to dataframe (if any)
-                for p in pure_in_mix:
+                for p in fluid_not_in_mix:
                     result_df.loc[len(result_df)] = \
-                        [p, pure_fluid, pure_sample, mix_sample, True, True]
-                for p in pure_not_in_mix:
+                        [p, fluid, mix_sample, True, False]
+                for p in mix_not_in_fluid:
                     result_df.loc[len(result_df)] = \
-                        [p, pure_fluid, pure_sample, mix_sample, True, False]
-                for p in mix_not_in_pure:
-                    result_df.loc[len(result_df)] = \
-                        [p, pure_fluid, pure_sample, mix_sample, False, True]
+                        [p, fluid, mix_sample, False, True]
 
     return result_df
 

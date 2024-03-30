@@ -144,7 +144,7 @@ if __name__ == '__main__':
             protein_frequency
         )
 
-        # Get differences in proteins between pure sample and mixture
+        # Get differences in proteins between pure fluids and mixture samples
         pure_mix_differences = pure_mixture_diff(prots_per_pure_sample,
                                                  proteins_per_mixture_sample)
 
@@ -177,30 +177,30 @@ if __name__ == '__main__':
             # Get mix differences specific for fluid
             fluid_pure_mix_differences = (
                 pure_mix_differences).loc[
-                pure_mix_differences['body fluid pure sample']
+                pure_mix_differences['body fluid']
                 == selected_fluid]
 
             # Show proteins that are present in mixture sample,
             # but not in pure sample
             with st.expander(
                     f"Proteins in mixture not in "
-                    f"pure sample for {selected_fluid}",
+                    f"fluid for {selected_fluid}",
                     expanded=True):
                 st.dataframe(
                     fluid_pure_mix_differences.loc[
-                        ~fluid_pure_mix_differences['present in pure'] &
+                        ~fluid_pure_mix_differences['present in fluid'] &
                         fluid_pure_mix_differences['present in mixture']]
                 )
 
             # Show proteins that are present in pure sample,
             # but not in mixture sample
             with st.expander(
-                    f"Proteins in pure sample not in "
+                    f"Proteins in fluid not in "
                     f"mixture for {selected_fluid}",
                     expanded=True):
                 st.dataframe(
                     fluid_pure_mix_differences.loc[
-                        fluid_pure_mix_differences['present in pure'] &
+                        fluid_pure_mix_differences['present in fluid'] &
                         ~fluid_pure_mix_differences['present in mixture']]
                 )
 

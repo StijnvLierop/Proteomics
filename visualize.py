@@ -40,10 +40,10 @@ def run_tsne_pure(proteins_per_pure_sample: pd.DataFrame) -> Figure:
     return fig
 
 
-def protein_counts_per_fluid_dist(prots_per_pure_sample: pd.DataFrame) \
+def protein_counts_per_fluid_dist(proteins_per_pure_sample: pd.DataFrame) \
         -> Figure:
     # Get sample columns
-    sample_columns = get_sample_columns(prots_per_pure_sample)
+    sample_columns = get_sample_columns(proteins_per_pure_sample)
     fluids = [column2fluid(x) for x in sample_columns]
     fluid_counts = collections.Counter(fluids)
 
@@ -51,7 +51,7 @@ def protein_counts_per_fluid_dist(prots_per_pure_sample: pd.DataFrame) \
     fluids = [f"{fluid} (n={fluid_counts[fluid]})" for fluid in fluids]
 
     # Get information on nr of different proteins found per body fluid
-    protein_counts = prots_per_pure_sample[sample_columns].sum(axis=0)
+    protein_counts = proteins_per_pure_sample[sample_columns].sum(axis=0)
     protein_counts_per_fluid = pd.DataFrame(
         np.array([protein_counts.values, fluids]).T,
         columns=['count', 'fluid'])
