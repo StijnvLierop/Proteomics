@@ -1,22 +1,12 @@
 import pandas as pd
-from typing import Iterable
+from typing import Iterable, Tuple
 from PIL import Image
 import io
 
 from constants import BODY_FLUIDS
 
-def get_proteins_per_sample_true_in_mask(df: pd.DataFrame,
-                                         mask: pd.DataFrame,
-                                         fluid: str) -> pd.DataFrame:
-    protein_df = pd.DataFrame(columns=['PG.ProteinDescriptions', 'body fluid'])
-    for sample in mask.columns:
-        proteins = df.loc[mask[sample], 'PG.ProteinDescriptions'].to_list()
-        for protein in proteins:
-            protein_df.loc[len(protein_df)] = [protein, fluid]
-    return protein_df
 
 def columns_to_labels(column_names: Iterable[str]) -> Iterable[str]:
-
     labels = []
     for name in column_names:
         for fluid in BODY_FLUIDS:
@@ -24,6 +14,7 @@ def columns_to_labels(column_names: Iterable[str]) -> Iterable[str]:
                 labels.append(fluid)
 
     return labels
+
 
 # https://stackoverflow.com/questions/57316491/how-to-convert-matplotlib-figure-to-pil-image-object-without-saving-image
 def fig2img(fig):
@@ -33,3 +24,59 @@ def fig2img(fig):
     buf.seek(0)
     img = Image.open(buf)
     return img
+
+
+def column2fluid(column_name: str) -> str:
+    for fluid in BODY_FLUIDS:
+        if fluid in column_name:
+            return fluid
+
+
+def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
+    # Get sample columns
+    sample_columns = [x for x in df.columns if x.endswith(".Quantity")]
+
+    # Rename sample columns
+    for column in sample_columns:
+        df.rename(columns={column: column.split(".")[0] + "_sample"},
+                  inplace=True)
+
+    return df
+
+
+def exclude_samples(df: pd.DataFrame,
+                    samples_to_exclude: Iterable[str]) -> pd.DataFrame:
+    # Remove samples to exclude from sample columns
+    sample_columns = [x for x in df.columns if x not in samples_to_exclude]
+
+    # Filter on remaining samples
+    df = df[sample_columns]
+
+    return df
+
+
+def get_sample_columns(df: pd.DataFrame) -> Iterable[str]:
+    sample_columns = [x for x in df.columns if x.endswith("_sample")]
+    return sample_columns
+
+
+def style_df(df: pd.DataFrame) -> pd.DataFrame:
+    new_df = df.copy()
+    float_columns = new_df.select_dtypes(include=['float']).columns
+    new_df[float_columns] = new_df[float_columns].map('{:,.2f}'.format)
+    return new_df
+
+
+def pure_is_in_mixture(pure_sample: str, mix_sample: str) -> bool:
+
+    # Make sure both sample names are non-empty
+    if len(pure_sample) > 0 and len(mix_sample) > 0:
+
+        # Extract identifier part from pure sample
+        participant_id = pure_sample.split("_")[6]
+
+        # Check if id is in mix sample name
+        return participant_id in mix_sample
+
+    # Return False by default
+    return False

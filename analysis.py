@@ -1,30 +1,27 @@
 import pandas as pd
 from typing import Iterable, Tuple
 import numpy as np
+import streamlit as st
 
-from utils import get_proteins_per_sample_true_in_mask
+from utils import column2fluid, \
+    get_sample_columns, pure_is_in_mixture
 from constants import BODY_FLUIDS
 
 
-def get_protein_count_per_body_fluid(df: pd.DataFrame,
-                                     samples_to_exclude: Iterable[str] = None) \
-        -> pd.DataFrame:
-    # Define samples to look at
-    samples = [x for x in df.columns if x.endswith("PEP.Quantity")]
-
-    # Filter on samples to exclude
-    if samples_to_exclude:
-        samples = [x for x in samples if x not in samples_to_exclude]
+@st.cache_data
+def get_protein_frequency(protein_df: pd.DataFrame) -> pd.DataFrame:
+    # Get sample columns
+    sample_columns = get_sample_columns(protein_df)
 
     # For each protein and body fluid
-    for key, protein_data in df.iterrows():
+    for key, protein_data in protein_df.iterrows():
         for fluid in BODY_FLUIDS:
             # Initialize counts to 0
             protein_in_sample_count = 0
             total_fluid_samples = 0
 
             # Loop over samples
-            for sample in samples:
+            for sample in sample_columns:
                 # If fluid sample add 1 to the fluid sample count
                 if fluid in sample:
                     total_fluid_samples += 1
@@ -34,17 +31,91 @@ def get_protein_count_per_body_fluid(df: pd.DataFrame,
                         protein_in_sample_count += 1
 
             # Store relative count for current protein and fluid in dataframe
-            df.loc[key, fluid] = protein_in_sample_count / total_fluid_samples
+            if total_fluid_samples > 0:
+                protein_df.loc[key, fluid] = (protein_in_sample_count
+                                              / total_fluid_samples
+                                              * 100)
+            else:
+                protein_df.loc[key, fluid] = np.nan
 
-    return df[['PG.ProteinDescriptions'] + BODY_FLUIDS]
+    return protein_df[['PG.ProteinDescriptions'] + BODY_FLUIDS]
 
 
+@st.cache_data
+def get_protein_intensity(po_protein_df: pd.DataFrame,
+                          proteins_per_sample: pd.DataFrame) -> pd.DataFrame:
+    # Create new dataframe
+    protein_intensity_df = pd.DataFrame(
+        columns=['PG.ProteinDescriptions', 'intensity', 'body fluid', 'sample'])
+
+    # Get sample columns
+    sample_columns = get_sample_columns(proteins_per_sample)
+
+    # Loop over samples
+    for sample in sample_columns:
+
+        # Get body fluid of sample
+        fluid = column2fluid(sample)
+
+        # Get proteins in sample
+        proteins_in_sample = proteins_per_sample.loc[
+            proteins_per_sample[
+                sample], 'PG.ProteinDescriptions'].to_list()
+
+        # Get intensities of selected proteins for selected sample
+        protein_intensities = po_protein_df[
+            po_protein_df['PG.ProteinDescriptions'].isin(proteins_in_sample)][
+            ['PG.ProteinDescriptions', sample]]
+        if len(protein_intensities) > 0:
+            protein_intensities.rename(columns={sample: 'intensity'},
+                                       inplace=True)
+            protein_intensities['body fluid'] = fluid
+            protein_intensities['sample'] = sample
+
+            # Store protein intensities in dataframe
+            protein_intensity_df = pd.concat(
+                [protein_intensity_df, protein_intensities])
+
+    return protein_intensity_df
+
+
+@st.cache_data
+def add_mean_protein_intensity(protein_freqs: pd.DataFrame,
+                               protein_intensities: pd.DataFrame) \
+        -> pd.DataFrame:
+    # Loop over body fluids
+    for fluid in BODY_FLUIDS:
+
+        # Only take into account data of current fluid
+        protein_intensities_fluid = protein_intensities[
+            protein_intensities['body fluid'] == fluid]
+
+        # Group by protein and take mean over samples
+        protein_intensities_mean = \
+            protein_intensities_fluid.groupby('PG.ProteinDescriptions')[
+                'intensity'].mean(numeric_only=True).reset_index()
+
+        # Add column to dataframe
+        protein_freqs[f'mean protein intensity over samples {fluid}'] = np.nan
+
+        # Add to protein_counts
+        for key, protein in protein_intensities_mean.iterrows():
+            protein_freqs.loc[
+                protein_freqs['PG.ProteinDescriptions'] == protein[
+                    'PG.ProteinDescriptions'],
+                f'mean protein intensity over samples {fluid}'] = \
+                protein['intensity']
+
+    return protein_freqs
+
+
+@st.cache_data
 def filter_on_peptide_count(pure_peptide_df: pd.DataFrame,
                             peptide_threshold: int) -> pd.DataFrame:
-    # Filter dataframe on samples
-    sample_columns = [x for x in pure_peptide_df.columns
-                      if x.endswith('PEP.Quantity')]
+    # Get sample columns
+    sample_columns = get_sample_columns(pure_peptide_df)
 
+    # Raise value error if no sample columns are found
     if len(sample_columns) == 0:
         raise ValueError(
             "No sample columns found. Please ensure the "
@@ -56,7 +127,7 @@ def filter_on_peptide_count(pure_peptide_df: pd.DataFrame,
                                               + sample_columns]
 
     # Replace all numbers with 1's and all NaNs with 0's
-    pure_peptide_df_samples.fillna(0, inplace=True)
+    pure_peptide_df_samples = pure_peptide_df_samples.fillna(0)
     for sample in sample_columns:
         pure_peptide_df_samples.loc[
             pure_peptide_df_samples[sample] > 1, sample] = 1
@@ -71,39 +142,63 @@ def filter_on_peptide_count(pure_peptide_df: pd.DataFrame,
     return proteins_per_sample
 
 
-def add_gini_impurity(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    # Calculate gini impurity
-    df['gini impurity'] = df.apply(
+@st.cache_data
+def add_gini_impurity(protein_frequency: pd.DataFrame) \
+        -> Tuple[pd.DataFrame, pd.DataFrame]:
+    # Calculate gini impurity and add to dataframe
+    protein_frequency['gini impurity'] = protein_frequency.apply(
         lambda row: gini_impurity(np.array(row[BODY_FLUIDS])), axis=1)
 
     # Get proteins that never occur
-    proteins_in_no_body_fluids = df[df['gini impurity'].isna()]
+    proteins_in_no_body_fluids = protein_frequency[
+        protein_frequency['gini impurity'].isna()]
 
     # Filter out proteins that never occur
-    df = df[~df['gini impurity'].isna()]
+    protein_frequency = protein_frequency[
+        ~protein_frequency['gini impurity'].isna()]
 
     # Add helper column for sorting
-    df['max_relative_sample_count'] = df[BODY_FLUIDS].max(axis=1)
+    protein_frequency['max frequency for protein'] = (
+        protein_frequency[BODY_FLUIDS].max(axis=1))
 
-    # Sort values based on #1 lowest gini impurity
+    # Sort values in protein count dataframe
+    # based on #1 lowest gini impurity
     # and #2 highest relative sample count
-    df.sort_values(by=['gini impurity', 'max_relative_sample_count'],
-                   ascending=[True, False],
-                   inplace=True)
+    protein_frequency.sort_values(by=['gini impurity',
+                                      'max frequency for protein'],
+                                  ascending=[True, False],
+                                  inplace=True)
 
-    # Drop helper column
-    df.drop('max_relative_sample_count', axis=1, inplace=True)
-
-    return df, proteins_in_no_body_fluids
+    return protein_frequency, proteins_in_no_body_fluids
 
 
-def get_identifying_proteins_per_body_fluid(df: pd.DataFrame) -> pd.DataFrame:
+@st.cache_data
+def get_identifying_proteins(protein_frequency: pd.DataFrame) \
+        -> pd.DataFrame:
+    # Check if intensity is already calculated, otherwise do this first
+    if not any(protein_frequency.columns.str.contains('mean protein intensity')):
+        raise ValueError("Protein intensity not found in data. "
+                         "Please calculate and add this first.")
+
     # Create dataframe of fluids mapping to identifying proteins
-    identifying_proteins = pd.DataFrame(columns=['PG.ProteinDescriptions',
-                                                 'body fluid',
-                                                 'relative occurrence'])
+    identifying_proteins = pd.DataFrame(
+        columns=['PG.ProteinDescriptions',
+                 'body fluid',
+                 '% of samples with this protein',
+                 'mean protein intensity over samples']
+    )
+
+    # Set dtypes
+    identifying_proteins = (identifying_proteins.astype(
+        {'PG.ProteinDescriptions': str,
+         'body fluid': str,
+         '% of samples with this protein': float,
+         'mean protein intensity over samples': float}
+    )
+    )
+
     # Create a mask of body fluids
-    df_fluids = df[BODY_FLUIDS]
+    df_fluids = protein_frequency[BODY_FLUIDS]
 
     # Loop over fluids
     for fluid in BODY_FLUIDS:
@@ -111,56 +206,134 @@ def get_identifying_proteins_per_body_fluid(df: pd.DataFrame) -> pd.DataFrame:
         body_fluid_present = df_fluids[fluid] > 0
 
         # Get rows where no other body fluids are present
-        no_other_fluids_present = df_fluids.drop(fluid, axis=1).sum(axis=1) == 0
+        no_other_fluids_present = (df_fluids.drop(fluid, axis=1)
+                                   .sum(axis=1) == 0)
 
-        # Get proteins that meet both conditions and store result in dictionary
-        identifying_proteins_fluid = df.loc[
+        # Get proteins that meet both conditions
+        # and store result in dictionary
+        identifying_proteins_fluid = protein_frequency.loc[
             body_fluid_present & no_other_fluids_present,
             [
                 'PG.ProteinDescriptions',
-                fluid]
+                fluid,
+                f'mean protein intensity over samples {fluid}',
+            ]
         ]
 
         # Transform separately fluid columns to one fluid column
         # and rename original fluid column to relative occurrence
         identifying_proteins_fluid['body fluid'] = fluid
         identifying_proteins_fluid.rename(
-            columns={fluid: 'relative occurrence'}, inplace=True)
-        identifying_proteins = pd.concat([identifying_proteins_fluid,
-                                          identifying_proteins])
+            columns={fluid: '% of samples with this protein',
+                     f'mean protein intensity over samples {fluid}':
+                         'mean protein intensity over samples'},
+            inplace=True)
+        identifying_proteins = (
+            pd.concat([identifying_proteins_fluid
+                      .astype(identifying_proteins.dtypes),
+                       identifying_proteins
+                      .astype(identifying_proteins_fluid.dtypes)]
+                      )
+        )
+
+    # Sort values in dataframe
+    # based on #1 highest relative sample count
+    # and #2 highest mean protein intensity over samples
+    identifying_proteins.sort_values(by=['% of samples with this protein',
+                                         'mean protein intensity over samples'],
+                                     ascending=[False, False],
+                                     inplace=True)
 
     return identifying_proteins
 
 
-def get_protein_differences_pure_sample_with_mixture(
+@st.cache_data
+def pure_mixture_diff(
         proteins_per_pure_sample: pd.DataFrame,
-        proteins_per_mixture_sample: pd.DataFrame) -> pd.DataFrame:
-    # Loop over body fluids
-    for fluid in BODY_FLUIDS:
-        # Get pure proteins for this fluid
-        fluid_columns_pure = [x for x in proteins_per_pure_sample.columns if
-                              x.endswith('PEP.Quantity')]
-        pure_proteins_fluid = proteins_per_pure_sample[fluid_columns_pure]
+        proteins_per_mixture_sample: pd.DataFrame) \
+        -> pd.DataFrame:
 
-        # Get mixture proteins for this fluid
-        fluid_columns_mixture = [x for x in proteins_per_mixture_sample.columns
-                                 if x.endswith('PEP.Quantity')]
-        mixture_proteins_fluid = proteins_per_mixture_sample[
-            fluid_columns_mixture]
+    # Create dataframe to store results
+    result_df = pd.DataFrame(columns=['PG.ProteinDescriptions',
+                                      'body fluid pure sample',
+                                      'pure sample',
+                                      'mix sample',
+                                      'present in pure',
+                                      'present in mixture'])
 
-        # Store proteins in mixture not in pure in dictionary
-        proteins_in_mixture_not_in_pure = get_proteins_per_sample_true_in_mask(
-            proteins_per_pure_sample,
-            ~pure_proteins_fluid & mixture_proteins_fluid,
-            fluid)
+    # Get sample columns
+    sample_columns_pure = get_sample_columns(proteins_per_pure_sample)
+    sample_columns_mixture = get_sample_columns(proteins_per_mixture_sample)
 
-        # Store proteins in pure not in mixture in dictionary
-        proteins_in_pure_not_in_mixture = get_proteins_per_sample_true_in_mask(
-            proteins_per_pure_sample,
-            pure_proteins_fluid & ~mixture_proteins_fluid,
-            fluid)
+    # Loop over pure samples
+    for pure_sample in sample_columns_pure:
 
-    return proteins_in_mixture_not_in_pure, proteins_in_pure_not_in_mixture
+        # Get proteins in pure sample
+        pure_proteins = proteins_per_pure_sample.loc[
+            proteins_per_pure_sample[pure_sample],
+            'PG.ProteinDescriptions'].to_list()
+
+        # Body fluid of pure sample
+        pure_fluid = column2fluid(pure_sample)
+
+        # Loop over mixture samples
+        for mix_sample in sample_columns_mixture:
+
+            # Check if mixture sample contains the pure sample
+            if pure_is_in_mixture(pure_sample, mix_sample):
+
+                # Get proteins in mix sample
+                mix_proteins = (
+                    proteins_per_mixture_sample.loc[
+                        proteins_per_mixture_sample[mix_sample],
+                        'PG.ProteinDescriptions'].to_list())
+
+                # Check if proteins are in the pure sample
+                # that are not in the mix sample
+                pure_not_in_mix = [p for p in pure_proteins
+                                   if p not in mix_proteins]
+
+                # Check if proteins are in the mix sample
+                # that are not in the pure sample
+                mix_not_in_pure = [p for p in mix_proteins
+                                   if p not in pure_proteins]
+
+                # Check if proteins are in the pure sample
+                # that are also in the mix sample
+                pure_in_mix = [p for p in pure_proteins
+                               if p in mix_proteins]
+
+                # Loop over results and add to dataframe (if any)
+                for p in pure_in_mix:
+                    result_df.loc[len(result_df)] = \
+                        [p, pure_fluid, pure_sample, mix_sample, True, True]
+                for p in pure_not_in_mix:
+                    result_df.loc[len(result_df)] = \
+                        [p, pure_fluid, pure_sample, mix_sample, True, False]
+                for p in mix_not_in_pure:
+                    result_df.loc[len(result_df)] = \
+                        [p, pure_fluid, pure_sample, mix_sample, False, True]
+
+    return result_df
+
+@st.cache_data
+def general_statistics(prots_per_pure_sample: pd.DataFrame) -> pd.DataFrame:
+    # Get sample columns
+    sample_columns = get_sample_columns(prots_per_pure_sample)
+    fluids = [column2fluid(x) for x in sample_columns]
+
+    # Nr of samples per body fluid
+    fluid_counts = np.unique(fluids, return_counts=True)
+
+    # Create new dataframe with counts
+    df = pd.DataFrame()
+    df['body fluid'] = fluid_counts[0]
+    df['nr of samples'] = fluid_counts[1]
+
+    # Set index to body fluid
+    df.set_index(df.columns[0], inplace=True)
+
+    return df
 
 
 def gini_impurity(counts: np.array(int, ndmin=1)) -> float:
