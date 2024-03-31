@@ -1,5 +1,7 @@
 import pandas as pd
 from typing import Iterable, Tuple
+
+import streamlit
 from PIL import Image
 import io
 
@@ -40,7 +42,8 @@ def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
 
     # Rename sample columns
     for column in sample_columns:
-        df.rename(columns={column: column.split(".")[0] + "_sample"},
+        df.rename(columns={column: column.replace('vagfluid', 'vaginalfluid')
+                  .split(".")[0] + "_sample"},
                   inplace=True)
 
     return df

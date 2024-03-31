@@ -12,10 +12,10 @@ from analysis import filter_on_peptide_count, \
     add_mean_protein_intensity, \
     general_statistics
 from constants import BODY_FLUIDS
-from visualize import run_tsne_pure, protein_counts_per_fluid_dist
+from visualize import protein_counts_per_fluid_dist
 from utils import (preprocess_df, exclude_samples, get_sample_columns,
                    style_df)
-from model import run_decision_tree
+from model import run_model, run_tsne_pure
 
 
 @st.cache_data
@@ -225,6 +225,36 @@ if __name__ == '__main__':
         # Section for showing model results
         st.header("Modelling")
 
+        # Check if to use identifying proteins for predictions
+        use_identifying_proteins = st.checkbox("Use only identifying proteins")
+
+        # Set nr of artificial samples to generate
+        n_artificial_samples = (
+            st.number_input("Number of artificial mixture samples to use",
+                            value=0)
+        )
+
+        # Define model tabs
+        tab1, tab2, tab3 = st.tabs(["Decision Tree",
+                                    "Random Forest",
+                                    "Multi-Layer Perceptron"])
+
         # Decision Tree
-        tree = run_decision_tree(pure_protein_df, mix_protein_df)
-        st.graphviz_chart(tree)
+        with tab1:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'dt',
+                      n_artificial_samples,
+                      identifying_proteins if use_identifying_proteins else None)
+        with tab2:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'rf',
+                      n_artificial_samples,
+                      identifying_proteins if use_identifying_proteins else None)
+        with tab3:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'nn',
+                      n_artificial_samples,
+                      identifying_proteins if use_identifying_proteins else None)

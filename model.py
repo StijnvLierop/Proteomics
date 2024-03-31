@@ -1,20 +1,54 @@
 import numpy as np
+import sklearn.base
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
-from typing import Tuple
+from sklearn.ensemble import RandomForestClassifier
+from typing import Tuple, Mapping
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.metrics import classification_report
+from sklearn.neural_network import MLPClassifier
+from sklearn.manifold import TSNE
+from sklearn.base import ClassifierMixin
+from sklearn.linear_model import LogisticRegression
 import streamlit as st
+from plotly.graph_objects import Figure
 
 from utils import get_sample_columns, column2fluid, get_unique_labels
 from constants import BODY_FLUIDS
+from visualize import visualize_metrics, visualize_tsne
+
+
+def run_tsne_pure(proteins_per_pure_sample: pd.DataFrame) -> Figure:
+    # Get data
+    x, y = prepare_data(proteins_per_pure_sample, multilabel=False)
+
+    # Run T-SNE
+    x_embedded = TSNE(n_components=2, random_state=42).fit_transform(x)
+
+    # Store results in dataframe
+    df = pd.DataFrame(x_embedded, columns=['x', 'y'])
+    df['body fluid'] = y
+
+    fig = visualize_tsne(df)
+
+    return fig
 
 
 def prepare_data(protein_df: pd.DataFrame,
+                 identifying_proteins: list[str] = None,
                  multilabel: bool = True) -> Tuple[np.ndarray, list[str]]:
     # Get sample columns
     sample_columns = get_sample_columns(protein_df)
+
+    # If identifying proteins, filter rows on these proteins
+    if identifying_proteins:
+        protein_df = protein_df[
+            protein_df['PG.ProteinDescriptions'].isin(identifying_proteins)
+        ]
 
     # Define feature vector x
     x = np.array(protein_df[sample_columns].T)
@@ -61,6 +95,9 @@ def filter_on_train_proteins(pure_protein_df: pd.DataFrame,
     # Add proteins
     mix_protein_df = pd.concat([mix_protein_df, proteins_to_add])
 
+    # Fill nans with False
+    mix_protein_df = mix_protein_df.fillna(False)
+
     return mix_protein_df
 
 
@@ -84,12 +121,54 @@ def predictions_to_df(predictions: list[str], y_true: list[str]) \
 
     return results_df
 
+def add_simulated_mixtures(protein_df: pd.DataFrame,
+                           n: int) -> pd.DataFrame:
+    # Get sample columns
+    sample_columns = get_sample_columns(protein_df)
 
-def run_decision_tree(pure_protein_df: pd.DataFrame,
-                      mixed_protein_df: pd.DataFrame) -> str:
+    # Loop over nr of artificial mixtures to add
+    for i in range(n):
+        # Choose 2 random fluids
+        fluid1, fluid2 = np.random.choice(BODY_FLUIDS, 2)
+
+        # Choose a random other sample per fluid
+        fluid1_sample = np.random.choice([x for x in sample_columns
+                                          if fluid1 in x],
+                                         1)[0]
+        fluid2_sample = np.random.choice([x for x in sample_columns
+                                          if fluid2 in x],
+                                         1)[0]
+
+        # Get all proteins in the chosen samples and set random proteins to False
+        fluid1_sample = protein_df[fluid1_sample]
+        fluid1_sample[fluid1_sample.sample(n=np.random.randint(0, 10)).index] = False
+        fluid2_sample = protein_df[fluid2_sample]
+        fluid2_sample[fluid2_sample.sample(n=np.random.randint(0, 10)).index] = False
+
+        # Combine new sample into single sample
+        combined_sample = fluid1_sample | fluid2_sample
+
+        # Define a name for the new sample
+        sample_name = f'artificial{i}_{fluid1}_{fluid2}_sample'
+
+        # Add sample to dataframe as a new column
+        protein_df[sample_name] = combined_sample
+
+    return protein_df
+
+def run_model(pure_protein_df: pd.DataFrame,
+              mixed_protein_df: pd.DataFrame,
+              model: str,
+              n_artificial_samples: int = 0,
+              identifying_proteins: pd.DataFrame = None):
+
     # Equalize dataframe dimensions
     mixed_protein_df = filter_on_train_proteins(pure_protein_df,
                                                 mixed_protein_df)
+
+    # Add simulated mixtures to train data
+    pure_protein_df = add_simulated_mixtures(pure_protein_df,
+                                             n=n_artificial_samples)
 
     # Prepare data
     x_train, y_train = prepare_data(pure_protein_df, multilabel=True)
@@ -97,25 +176,112 @@ def run_decision_tree(pure_protein_df: pd.DataFrame,
 
     # Transform labels to label-indicator format
     mlb = MultiLabelBinarizer()
-    y_train = mlb.fit_transform(y_train)
+    y_train_transformed = mlb.fit_transform(y_train)
+    y_test_transformed = mlb.transform(y_test)
 
-    # Initialize model
-    model = DecisionTreeClassifier(random_state=42)
+    # Set correct estimator object
+    if model == 'dt':
+        estimator = DecisionTreeClassifier(random_state=42)
+    elif model == 'rf':
+        estimator = RandomForestClassifier(random_state=42)
+    elif model == 'nn':
+        estimator = MLPClassifier(random_state=42)
 
-    # Fit model
-    model.fit(x_train, y_train)
+    # If identifying proteins used, fit separate model per fluid
+    if identifying_proteins is not None:
 
-    # Perform predictions
-    predictions = model.predict(x_test)
+        # Initialize model
+        model = CustomOneVsRestClassifier(estimator,
+                                          identifying_proteins)
 
-    # Get label predictions
-    predictions = mlb.inverse_transform(predictions)
+        # Fit model
+        model.fit(pure_protein_df)
+
+        # Perform predictions
+        predictions = model.predict(mixed_protein_df)
+
+    # Otherwise use default sklearn OneVsRest model
+    else:
+        # Initialize model
+        model = OneVsRestClassifier(estimator)
+
+        # Fit model
+        model.fit(x_train, y_train_transformed)
+
+        # Perform predictions
+        predictions = model.predict(x_test)
+
+    # Get metrics
+    metrics = classification_report(y_test_transformed,
+                                    predictions,
+                                    output_dict=True,
+                                    target_names=mlb.classes_)
+
+    # Visualize metrics
+    visualize_metrics(metrics)
 
     # Transform to dataframe
-    results_df = predictions_to_df(predictions, y_test)
-    st.write(results_df)
+    # results_df = predictions_to_df(predictions_transformed, y_test)
+
+    # Show confusion plot
+    # TODO: Confusion plot
 
     # Tree graph
-    graph = tree.export_graphviz(model)
+    # if isinstance(estimator, DecisionTreeClassifier):
+    #     st.graphviz_chart(tree.export_graphviz(model.estimators_[0]))
 
-    return graph
+
+class CustomOneVsRestClassifier:
+
+    def __init__(self,
+                 estimator,
+                 identifying_proteins: pd.DataFrame):
+        self._base_estimator = estimator
+        self._identifying_proteins = identifying_proteins
+        self._estimators = {}
+        for fluid in BODY_FLUIDS:
+            self._estimators[fluid] = sklearn.base.clone(estimator)
+
+    def fit(self, protein_df):
+        # Loop over fluids
+        for fluid in BODY_FLUIDS:
+            # Get identifying proteins for fluid (features)
+            features = self._identifying_proteins.loc[
+                (self._identifying_proteins['body fluid'] == fluid) & (self._identifying_proteins['% of samples with this protein'] > 80),
+                'PG.ProteinDescriptions'
+            ].to_list()
+
+            # Prepare data
+            x, y = prepare_data(protein_df, features)
+
+            # Encode labels
+            y = [1 if elem[0] == fluid else 0 for elem in y]
+
+            # Store trained estimator
+            self._estimators[fluid].fit(x, y)
+
+    def predict(self, protein_df):
+        # Get sample columns
+        sample_columns = get_sample_columns(protein_df)
+
+        # Store predictions
+        predictions = np.empty(shape=(len(BODY_FLUIDS), len(sample_columns)))
+
+        # Loop over fluids
+        for i, fluid in enumerate(BODY_FLUIDS):
+            # Get identifying proteins for fluid (features)
+            features = self._identifying_proteins.loc[
+                (self._identifying_proteins['body fluid'] == fluid) & (self._identifying_proteins['% of samples with this protein'] > 80),
+                'PG.ProteinDescriptions'
+            ].to_list()
+
+            # Get trained estimator of fluid
+            fluid_estimator = self._estimators[fluid]
+
+            # Prepare data
+            x, _ = prepare_data(protein_df, features)
+
+            # Perform inference
+            predictions[i] = fluid_estimator.predict(x)
+
+        return predictions.T
