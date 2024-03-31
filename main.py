@@ -15,6 +15,7 @@ from constants import BODY_FLUIDS
 from visualize import run_tsne_pure, protein_counts_per_fluid_dist
 from utils import (preprocess_df, exclude_samples, get_sample_columns,
                    style_df)
+from model import run_decision_tree
 
 
 @st.cache_data
@@ -101,11 +102,11 @@ if __name__ == '__main__':
             )
 
         # Filter on proteins that have at least n detected peptides per sample
-        prots_per_pure_sample = filter_on_peptide_count(
+        pure_protein_df = filter_on_peptide_count(
             pure_pept_df,
             st.session_state["peptide_threshold"]
         )
-        proteins_per_mixture_sample = filter_on_peptide_count(
+        mix_protein_df = filter_on_peptide_count(
             mix_pep_df,
             st.session_state["peptide_threshold"]
         )
@@ -113,11 +114,11 @@ if __name__ == '__main__':
         # Get protein intensities
         protein_intensities = get_protein_intensity(
             pure_prot_df,
-            prots_per_pure_sample
+            pure_protein_df
         )
 
         # Add relative nr of times each protein occurs in a body fluid
-        protein_frequency = get_protein_frequency(prots_per_pure_sample)
+        protein_frequency = get_protein_frequency(pure_protein_df)
 
         # Calculate information gain per protein
         (protein_frequency, proteins_in_no_samples_per_body_fluid) = (
@@ -133,7 +134,7 @@ if __name__ == '__main__':
         # Show general statistics
         with gen_info_column:
             st.subheader("General info")
-            st.dataframe(general_statistics(prots_per_pure_sample))
+            st.dataframe(general_statistics(pure_protein_df))
 
         # Show protein frequency
         st.subheader("Protein frequency per body fluid")
@@ -145,8 +146,8 @@ if __name__ == '__main__':
         )
 
         # Get differences in proteins between pure fluids and mixture samples
-        pure_mix_differences = pure_mixture_diff(prots_per_pure_sample,
-                                                 proteins_per_mixture_sample)
+        pure_mix_differences = pure_mixture_diff(pure_protein_df,
+                                                 mix_protein_df)
 
         # Show specific results per fluid
         st.divider()
@@ -213,10 +214,17 @@ if __name__ == '__main__':
 
         # Show T-SNE plot of pure samples
         with vis1:
-            st.plotly_chart(run_tsne_pure(prots_per_pure_sample))
+            st.plotly_chart(run_tsne_pure(pure_protein_df))
 
         # Show protein counts per fluid distribution
         with vis2:
             st.plotly_chart(
-                protein_counts_per_fluid_dist(prots_per_pure_sample)
+                protein_counts_per_fluid_dist(pure_protein_df)
             )
+
+        # Section for showing model results
+        st.header("Modelling")
+
+        # Decision Tree
+        tree = run_decision_tree(pure_protein_df, mix_protein_df)
+        st.graphviz_chart(tree)

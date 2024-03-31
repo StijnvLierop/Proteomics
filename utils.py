@@ -26,10 +26,12 @@ def fig2img(fig):
     return img
 
 
-def column2fluid(column_name: str) -> str:
+def column2fluid(column_name: str) -> list[str]:
+    fluids = []
     for fluid in BODY_FLUIDS:
         if fluid in column_name:
-            return fluid
+            fluids.append(fluid)
+    return fluids
 
 
 def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:

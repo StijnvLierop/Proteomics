@@ -11,17 +11,12 @@ import plotly.express as px
 from plotly.graph_objects import Figure
 
 from utils import columns_to_labels, fig2img, get_sample_columns, column2fluid
+from model import prepare_data
 
 
 def run_tsne_pure(proteins_per_pure_sample: pd.DataFrame) -> Figure:
-    # Get sample columns
-    sample_columns = get_sample_columns(proteins_per_pure_sample)
-
-    # Create feature matrix n_samples x n_proteins
-    x = proteins_per_pure_sample[sample_columns].T
-
-    # Create label vector of body fluids
-    y = columns_to_labels(proteins_per_pure_sample[sample_columns].columns)
+    # Get data
+    x, y = prepare_data(proteins_per_pure_sample, multilabel=False)
 
     # Run T-SNE
     x_embedded = TSNE(n_components=2, random_state=42).fit_transform(x)
@@ -44,7 +39,7 @@ def protein_counts_per_fluid_dist(proteins_per_pure_sample: pd.DataFrame) \
         -> Figure:
     # Get sample columns
     sample_columns = get_sample_columns(proteins_per_pure_sample)
-    fluids = [column2fluid(x) for x in sample_columns]
+    fluids = [column2fluid(x)[0] for x in sample_columns]
     fluid_counts = collections.Counter(fluids)
 
     # Add n to fluids
