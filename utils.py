@@ -57,7 +57,7 @@ def exclude_samples(df: pd.DataFrame,
     return df
 
 
-def get_sample_columns(df: pd.DataFrame) -> Iterable[str]:
+def get_sample_columns(df: pd.DataFrame) -> list[str]:
     sample_columns = [x for x in df.columns if x.endswith("_sample")]
     return sample_columns
 
@@ -82,3 +82,13 @@ def pure_is_in_mixture(pure_sample: str, mix_sample: str) -> bool:
 
     # Return False by default
     return False
+
+
+def get_unique_labels(body_fluids: Iterable[str]) -> list[str]:
+
+    labels = []
+    for fluid in body_fluids:
+        labels.append(f"{fluid} in sample")
+        labels.append(f"{fluid} predicted")
+
+    return labels

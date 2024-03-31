@@ -56,7 +56,7 @@ def get_protein_intensity(po_protein_df: pd.DataFrame,
     for sample in sample_columns:
 
         # Get body fluid of sample
-        fluid = column2fluid(sample)
+        fluid = column2fluid(sample)[0]
 
         # Get proteins in sample
         proteins_in_sample = proteins_per_sample.loc[
@@ -64,7 +64,7 @@ def get_protein_intensity(po_protein_df: pd.DataFrame,
                 sample], 'PG.ProteinDescriptions'].to_list()
 
         # Get intensities of selected proteins for selected sample
-        protein_intensities = po_protein_df[
+        protein_intensities = po_protein_df.loc[
             po_protein_df['PG.ProteinDescriptions'].isin(proteins_in_sample)][
             ['PG.ProteinDescriptions', sample]]
         if len(protein_intensities) > 0:
