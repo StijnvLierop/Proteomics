@@ -261,7 +261,7 @@ class CustomOneVsRestClassifier:
                                ].sort_values(by='mean protein intensity '
                                                 'over samples',
                                              ascending=False)
-                       )['PG.ProteinDescriptions'].to_list()[:10]
+                       )['PG.ProteinDescriptions'].to_list()
 
             # Prepare data
             x, y = prepare_data(protein_df, features)
@@ -290,7 +290,7 @@ class CustomOneVsRestClassifier:
                             ].sort_values(by='mean protein intensity '
                                              'over samples',
                                           ascending=False)
-                        )['PG.ProteinDescriptions'].to_list()[:10]
+                        )['PG.ProteinDescriptions'].to_list()
 
             # Get trained estimator of fluid
             fluid_estimator = self._estimators[fluid]
