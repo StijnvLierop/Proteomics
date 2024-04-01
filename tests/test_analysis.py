@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 
 from analysis import (gini_impurity, filter_on_peptide_count, \
-    get_protein_frequency, get_protein_intensity, pure_mixture_diff,
+                      get_protein_frequency, get_protein_intensity,
+                      pure_mixture_diff,
                       get_identifying_proteins, add_mean_protein_intensity)
 from utils import preprocess_df
 
@@ -63,8 +64,13 @@ def test_add_mean_protein_intensity(pure_only_file):
     intensities = get_protein_intensity(po_prot, proteins)
     protein_freq = get_protein_frequency(proteins)
     protein_freq = add_mean_protein_intensity(protein_freq, intensities)
-    assert protein_freq['mean protein intensity over samples saliva'].to_list() == [pytest.approx(171176.75)]
-    assert protein_freq['mean protein intensity over samples vaginalfluid'].to_list() == [pytest.approx(169310.4063)]
+    assert protein_freq[
+               'mean protein intensity over samples saliva'].to_list() == [
+               pytest.approx(171176.75)]
+    assert protein_freq[
+               'mean protein intensity over samples vaginalfluid'].to_list() == [
+               pytest.approx(169310.4063)]
+
 
 def test_identifying_proteins(pure_only_file):
     po_pep = pd.read_excel(pure_only_file,
@@ -85,6 +91,7 @@ def test_identifying_proteins(pure_only_file):
     id_proteins = get_identifying_proteins(protein_freq)
     assert len(id_proteins) == 1
 
+
 def test_pure_mix_diff(pure_only_file, combi_only_file):
     po_pep = pd.read_excel(pure_only_file,
                            sheet_name='2581_PureOnly_Peptide')
@@ -101,6 +108,7 @@ def test_pure_mix_diff(pure_only_file, combi_only_file):
                        ~results['present in mixture']]) == 4
     assert len(results[~results['present in fluid'] &
                        results['present in mixture']]) == 33
+
 
 def test_gini_impurity():
     values = np.array([5, 5])

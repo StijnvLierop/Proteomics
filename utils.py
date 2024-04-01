@@ -1,5 +1,7 @@
 import pandas as pd
 from typing import Iterable, Tuple
+
+import streamlit
 from PIL import Image
 import io
 
@@ -26,10 +28,12 @@ def fig2img(fig):
     return img
 
 
-def column2fluid(column_name: str) -> str:
+def column2fluid(column_name: str) -> list[str]:
+    fluids = []
     for fluid in BODY_FLUIDS:
         if fluid in column_name:
-            return fluid
+            fluids.append(fluid)
+    return fluids
 
 
 def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -38,7 +42,8 @@ def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
 
     # Rename sample columns
     for column in sample_columns:
-        df.rename(columns={column: column.split(".")[0] + "_sample"},
+        df.rename(columns={column: column.replace('vagfluid', 'vaginalfluid')
+                  .split(".")[0] + "_sample"},
                   inplace=True)
 
     return df
@@ -55,7 +60,7 @@ def exclude_samples(df: pd.DataFrame,
     return df
 
 
-def get_sample_columns(df: pd.DataFrame) -> Iterable[str]:
+def get_sample_columns(df: pd.DataFrame) -> list[str]:
     sample_columns = [x for x in df.columns if x.endswith("_sample")]
     return sample_columns
 
@@ -80,3 +85,13 @@ def pure_is_in_mixture(pure_sample: str, mix_sample: str) -> bool:
 
     # Return False by default
     return False
+
+
+def get_unique_labels(body_fluids: Iterable[str]) -> list[str]:
+
+    labels = []
+    for fluid in body_fluids:
+        labels.append(f"{fluid} in sample")
+        labels.append(f"{fluid} predicted")
+
+    return labels
