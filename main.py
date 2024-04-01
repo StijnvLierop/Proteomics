@@ -229,10 +229,10 @@ if __name__ == '__main__':
         use_identifying_proteins = st.checkbox("Use only identifying proteins")
 
         # Set nr of artificial samples to generate
-        n_artificial_samples = (
-            st.number_input("Number of artificial mixture samples to use",
-                            value=0)
-        )
+        n_artificial_samples = 0 # (
+        #     st.number_input("Number of artificial mixture samples to use",
+        #                     value=0)
+        # )
 
         # Define model tabs
         tab1, tab2, tab3 = st.tabs(["Decision Tree",
@@ -245,16 +245,21 @@ if __name__ == '__main__':
                       mix_protein_df,
                       'dt',
                       n_artificial_samples,
-                      identifying_proteins if use_identifying_proteins else None)
+                      identifying_proteins if
+                      use_identifying_proteins else None)
+        # Random Forest
         with tab2:
             run_model(pure_protein_df,
                       mix_protein_df,
                       'rf',
                       n_artificial_samples,
-                      identifying_proteins if use_identifying_proteins else None)
+                      identifying_proteins
+                      if use_identifying_proteins else None)
+        # Multi-Layer Perceptron
         with tab3:
             run_model(pure_protein_df,
                       mix_protein_df,
                       'nn',
                       n_artificial_samples,
-                      identifying_proteins if use_identifying_proteins else None)
+                      identifying_proteins
+                      if use_identifying_proteins else None)
