@@ -181,6 +181,13 @@ if __name__ == '__main__':
                 pure_mix_differences['body fluid']
                 == selected_fluid]
 
+            # Filter out samples and get unique proteins
+            fluid_pure_mix_differences = (
+                fluid_pure_mix_differences
+                .drop('mix sample', axis=1)
+                .drop_duplicates()
+            )
+
             # Show proteins that are present in mixture sample,
             # but not in pure sample
             with st.expander(
@@ -214,13 +221,11 @@ if __name__ == '__main__':
 
         # Show T-SNE plot of pure samples
         with vis1:
-            st.plotly_chart(run_tsne_pure(pure_protein_df))
+            run_tsne_pure(pure_protein_df)
 
         # Show protein counts per fluid distribution
         with vis2:
-            st.plotly_chart(
-                protein_counts_per_fluid_dist(pure_protein_df)
-            )
+            protein_counts_per_fluid_dist(pure_protein_df)
 
         # Section for showing model results
         st.header("Modelling")
@@ -230,19 +235,20 @@ if __name__ == '__main__':
                                                "proteins")
 
         # Set nr of artificial samples to generate
-        n_artificial_samples = 0 # (
+        n_artificial_samples = 0  # (
         #     st.number_input("Number of artificial mixture samples to use",
         #                     value=0)
         # )
 
         # Define model tabs
         (tab1, tab2, tab3,
-         tab4, tab5, tab6) = st.tabs(["Decision Tree",
-                                      "Random Forest",
-                                      "Multi-Layer Perceptron",
-                                      "Logistic Regression",
-                                      "Support Vector Machine",
-                                      "XGBoost Classifier"])
+         tab4, tab5, tab6, tab7) = st.tabs(["Decision Tree",
+                                            "Random Forest",
+                                            "Multi-Layer Perceptron",
+                                            "Logistic Regression",
+                                            "Support Vector Machine",
+                                            "XGBoost Classifier",
+                                            "KNN Classifier"])
 
         # Decision Tree
         with tab1:
@@ -289,6 +295,14 @@ if __name__ == '__main__':
             run_model(pure_protein_df,
                       mix_protein_df,
                       'xgboost',
+                      n_artificial_samples,
+                      identifying_proteins
+                      if use_identifying_proteins else None)
+        # KNN Classifier
+        with tab7:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'kn',
                       n_artificial_samples,
                       identifying_proteins
                       if use_identifying_proteins else None)

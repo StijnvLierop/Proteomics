@@ -288,7 +288,10 @@ def pure_mixture_diff(
         for mixture in sample_columns_mix_fluid:
 
             # Get proteins in mixture
-            proteins_mixture = proteins_per_mixture_sample.loc[proteins_per_mixture_sample[mixture], 'PG.ProteinDescriptions'].to_list()
+            proteins_mixture = (proteins_per_mixture_sample.loc[
+                proteins_per_mixture_sample[mixture],
+                'PG.ProteinDescriptions']
+                                .to_list())
 
             # Get proteins in mixture not in fluid of pure samples
             not_in_pure_fluid = list(set(proteins_mixture) - set(proteins_pure))

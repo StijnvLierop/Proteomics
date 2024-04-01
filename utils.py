@@ -1,10 +1,10 @@
 import pandas as pd
 from typing import Iterable, Tuple
-
+from matplotlib import pyplot as plt
 import streamlit
 from PIL import Image
 import io
-
+import plotly.express as px
 from constants import BODY_FLUIDS
 
 
@@ -19,13 +19,19 @@ def columns_to_labels(column_names: Iterable[str]) -> Iterable[str]:
 
 
 # https://stackoverflow.com/questions/57316491/how-to-convert-matplotlib-figure-to-pil-image-object-without-saving-image
-def fig2img(fig):
+def fig2img(fig: plt.Figure) -> Image:
     """Convert a Matplotlib figure to a PIL Image and return it"""
     buf = io.BytesIO()
     fig.savefig(buf)
     buf.seek(0)
     img = Image.open(buf)
     return img
+
+
+def fig2data(fig: plt.Figure) -> io.BytesIO:
+    output = io.BytesIO()
+    fig2img(fig).save(output, format='PNG')
+    return output
 
 
 def column2fluid(column_name: str) -> list[str]:
@@ -73,10 +79,8 @@ def style_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def pure_is_in_mixture(pure_sample: str, mix_sample: str) -> bool:
-
     # Make sure both sample names are non-empty
     if len(pure_sample) > 0 and len(mix_sample) > 0:
-
         # Extract identifier part from pure sample
         participant_id = pure_sample.split("_")[6]
 
@@ -88,7 +92,6 @@ def pure_is_in_mixture(pure_sample: str, mix_sample: str) -> bool:
 
 
 def get_unique_labels(body_fluids: Iterable[str]) -> list[str]:
-
     labels = []
     for fluid in body_fluids:
         labels.append(f"{fluid} in sample")

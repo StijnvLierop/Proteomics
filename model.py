@@ -13,6 +13,7 @@ from sklearn.metrics import classification_report
 from sklearn.neural_network import MLPClassifier
 from sklearn.manifold import TSNE
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.base import ClassifierMixin
 from sklearn.linear_model import LogisticRegression
 import streamlit as st
@@ -202,6 +203,8 @@ def run_model(pure_protein_df: pd.DataFrame,
         estimator = LogisticRegression(random_state=42)
     elif model == 'xgboost':
         estimator = GradientBoostingClassifier(random_state=42)
+    elif model == 'kn':
+        estimator = KNeighborsClassifier()
 
     # If identifying proteins used, fit separate model per fluid
     if identifying_proteins is not None:
