@@ -226,7 +226,8 @@ if __name__ == '__main__':
         st.header("Modelling")
 
         # Check if to use identifying proteins for predictions
-        use_identifying_proteins = st.checkbox("Use only identifying proteins")
+        use_identifying_proteins = st.checkbox("Use only fluid-specific "
+                                               "proteins")
 
         # Set nr of artificial samples to generate
         n_artificial_samples = 0 # (
@@ -235,9 +236,13 @@ if __name__ == '__main__':
         # )
 
         # Define model tabs
-        tab1, tab2, tab3 = st.tabs(["Decision Tree",
-                                    "Random Forest",
-                                    "Multi-Layer Perceptron"])
+        (tab1, tab2, tab3,
+         tab4, tab5, tab6) = st.tabs(["Decision Tree",
+                                      "Random Forest",
+                                      "Multi-Layer Perceptron",
+                                      "Logistic Regression",
+                                      "Support Vector Machine",
+                                      "XGBoost Classifier"])
 
         # Decision Tree
         with tab1:
@@ -260,6 +265,30 @@ if __name__ == '__main__':
             run_model(pure_protein_df,
                       mix_protein_df,
                       'nn',
+                      n_artificial_samples,
+                      identifying_proteins
+                      if use_identifying_proteins else None)
+        # Logistic Regression
+        with tab4:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'lr',
+                      n_artificial_samples,
+                      identifying_proteins
+                      if use_identifying_proteins else None)
+        # Support Vector Machine
+        with tab5:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'svm',
+                      n_artificial_samples,
+                      identifying_proteins
+                      if use_identifying_proteins else None)
+        # XGBoost Classifier
+        with tab6:
+            run_model(pure_protein_df,
+                      mix_protein_df,
+                      'xgboost',
                       n_artificial_samples,
                       identifying_proteins
                       if use_identifying_proteins else None)
