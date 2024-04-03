@@ -3,6 +3,8 @@ import pandas as pd
 from typing import Tuple
 from pathlib import Path
 
+from sklearn.preprocessing import MultiLabelBinarizer
+
 from analysis import filter_on_peptide_count, \
     get_protein_frequency, \
     add_gini_impurity, \
@@ -15,7 +17,9 @@ from constants import BODY_FLUIDS
 from visualize import protein_counts_per_fluid_dist
 from utils import (preprocess_df, exclude_samples, get_sample_columns,
                    style_df)
-from model import run_model, run_tsne_pure
+from model import run_tsne
+from model import RelativeProteinFrequencyModel, prepare_data, \
+    classification_report, visualize_metrics
 
 
 @st.cache_data
@@ -221,7 +225,7 @@ if __name__ == '__main__':
 
         # Show T-SNE plot of pure samples
         with vis1:
-            run_tsne_pure(pure_protein_df)
+            run_tsne(pure_protein_df, mix_protein_df)
 
         # Show protein counts per fluid distribution
         with vis2:
@@ -230,79 +234,34 @@ if __name__ == '__main__':
         # Section for showing model results
         st.header("Modelling")
 
-        # Check if to use identifying proteins for predictions
-        use_identifying_proteins = st.checkbox("Use only fluid-specific "
-                                               "proteins")
+        # Perform predictions
+        m = RelativeProteinFrequencyModel()
+        m.fit(identifying_proteins)
+        preds = m.predict(mix_protein_df)
+        mlb = MultiLabelBinarizer()
+        preds_transformed = mlb.fit_transform(preds)
 
-        # Set nr of artificial samples to generate
-        n_artificial_samples = 0  # (
-        #     st.number_input("Number of artificial mixture samples to use",
-        #                     value=0)
-        # )
+        x_test, y_test = prepare_data(mix_protein_df, multilabel=True)
+        y_test_transformed = mlb.transform(y_test)
 
-        # Define model tabs
-        (tab1, tab2, tab3,
-         tab4, tab5, tab6, tab7) = st.tabs(["Decision Tree",
-                                            "Random Forest",
-                                            "Multi-Layer Perceptron",
-                                            "Logistic Regression",
-                                            "Support Vector Machine",
-                                            "XGBoost Classifier",
-                                            "KNN Classifier"])
+        metrics = classification_report(y_test_transformed,
+                                        preds_transformed,
+                                        output_dict=True,
+                                        target_names=mlb.classes_)
 
-        # Decision Tree
-        with tab1:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'dt',
-                      n_artificial_samples,
-                      identifying_proteins if
-                      use_identifying_proteins else None)
-        # Random Forest
-        with tab2:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'rf',
-                      n_artificial_samples,
-                      identifying_proteins
-                      if use_identifying_proteins else None)
-        # Multi-Layer Perceptron
-        with tab3:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'nn',
-                      n_artificial_samples,
-                      identifying_proteins
-                      if use_identifying_proteins else None)
-        # Logistic Regression
-        with tab4:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'lr',
-                      n_artificial_samples,
-                      identifying_proteins
-                      if use_identifying_proteins else None)
-        # Support Vector Machine
-        with tab5:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'svm',
-                      n_artificial_samples,
-                      identifying_proteins
-                      if use_identifying_proteins else None)
-        # XGBoost Classifier
-        with tab6:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'xgboost',
-                      n_artificial_samples,
-                      identifying_proteins
-                      if use_identifying_proteins else None)
-        # KNN Classifier
-        with tab7:
-            run_model(pure_protein_df,
-                      mix_protein_df,
-                      'kn',
-                      n_artificial_samples,
-                      identifying_proteins
-                      if use_identifying_proteins else None)
+        # Visualize metrics
+        visualize_metrics(metrics)
+
+        # Calculate and show false positives and negatives
+        st.subheader("False Positives and False Negatives")
+        sample_names = get_sample_columns(mix_protein_df)
+        for i, (pred, y_test) in enumerate(zip(preds, y_test)):
+            if pred != y_test:
+                st.write(sample_names[i])
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("Predicted")
+                    st.write(pred)
+                with col2:
+                    st.write("True")
+                    st.write(y_test)

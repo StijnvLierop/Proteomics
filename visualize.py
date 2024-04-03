@@ -50,6 +50,17 @@ def visualize_tsne(df: pd.DataFrame) -> None:
     #                    mime="image/png",
     #                    key="t-SNE_pure_figure")
 
+def visualize_tsne(df: pd.DataFrame) -> Figure:
+    print(df)
+
+    # Visualize results
+    fig = px.scatter(df,
+                     x='x',
+                     y='y',
+                     color='fluid',
+                     title="T-SNE projection of pure samples")
+
+    st.plotly_chart(fig)
 
 def protein_counts_per_fluid_dist(proteins_per_pure_sample: pd.DataFrame) \
         -> None:
