@@ -2,7 +2,8 @@ import pandas as pd
 
 from utils import preprocess_df
 from analysis import filter_on_peptide_count
-from model import filter_on_train_proteins
+from model import filter_on_train_proteins, add_simulated_mixtures
+
 
 def test_filter_on_train_proteins(pure_only_file, combi_only_file):
     po_pep = pd.read_excel(pure_only_file,
@@ -22,3 +23,16 @@ def test_filter_on_train_proteins(pure_only_file, combi_only_file):
             pure_proteins['PG.ProteinDescriptions'].to_list())
 
 
+def test_add_simulated_mixtures():
+    pure_protein_df = pd.DataFrame(
+        {'PG.ProteinDescriptions': ['prot1', 'prot2', 'prot3'],
+         'saliva1_sample': [True, False, True],
+         'blood1_sample': [False, False, True],
+         'vaginalfluid_sample': [False, False, False],
+         'semen_sample': [True, True, True],
+         'urine_sample': [True, True, False]})
+
+    pure_protein_df_aug = add_simulated_mixtures(protein_df=pure_protein_df,
+                                                 n=1)
+
+    print(pure_protein_df_aug)

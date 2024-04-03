@@ -15,7 +15,7 @@ from constants import BODY_FLUIDS
 from visualize import protein_counts_per_fluid_dist
 from utils import (preprocess_df, exclude_samples, get_sample_columns,
                    style_df)
-from model import run_model, run_tsne_pure
+from model import run_model, run_tsne
 
 
 @st.cache_data
@@ -214,7 +214,7 @@ if __name__ == '__main__':
 
         # Show T-SNE plot of pure samples
         with vis1:
-            st.plotly_chart(run_tsne_pure(pure_protein_df))
+            run_tsne(pure_protein_df, mix_protein_df)
 
         # Show protein counts per fluid distribution
         with vis2:
@@ -229,10 +229,10 @@ if __name__ == '__main__':
         use_identifying_proteins = st.checkbox("Use only identifying proteins")
 
         # Set nr of artificial samples to generate
-        n_artificial_samples = 0 # (
-        #     st.number_input("Number of artificial mixture samples to use",
-        #                     value=0)
-        # )
+        n_artificial_samples = (
+            st.number_input("Number of artificial mixture samples to use",
+                            value=0)
+        )
 
         # Define model tabs
         tab1, tab2, tab3 = st.tabs(["Decision Tree",

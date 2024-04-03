@@ -1,2 +1,6 @@
 
 /.idea
+__pycache__/visualize.cpython-312.pyc
+__pycache__/model.cpython-312.pyc
+tests/__pycache__/conftest.cpython-312-pytest-8.1.1.pyc
+tests/__pycache__/test_model.cpython-312-pytest-8.1.1.pyc

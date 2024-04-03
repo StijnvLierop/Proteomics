@@ -16,38 +16,56 @@ from sklearn.base import ClassifierMixin
 from sklearn.linear_model import LogisticRegression
 import streamlit as st
 from plotly.graph_objects import Figure
+from skmultilearn.problem_transform import LabelPowerset
 
 from utils import get_sample_columns, column2fluid, get_unique_labels
 from constants import BODY_FLUIDS
 from visualize import visualize_metrics, visualize_tsne
 
 
-def run_tsne_pure(proteins_per_pure_sample: pd.DataFrame) -> Figure:
+def run_tsne(pure_proteins: pd.DataFrame,
+             mix_proteins: pd.DataFrame) -> None:
+    # Get common proteins
+    mix_proteins = filter_on_train_proteins(pure_proteins, mix_proteins)
+
     # Get data
-    x, y = prepare_data(proteins_per_pure_sample, multilabel=False)
+    x_pure, y_pure = prepare_data(pure_proteins, multilabel=True)
+    x_mix, y_mix = prepare_data(mix_proteins, multilabel=True)
+    x = np.concatenate((x_pure, x_mix), axis=0)
+    y_pure.extend(y_mix)
+    y = y_pure
 
     # Run T-SNE
     x_embedded = TSNE(n_components=2, random_state=42).fit_transform(x)
 
+    # Convert labels
+    mlb = MultiLabelBinarizer()
+    mlb.fit(y_pure)
+    y_transformed = mlb.transform(y)
+
     # Store results in dataframe
     df = pd.DataFrame(x_embedded, columns=['x', 'y'])
-    df['body fluid'] = y
+    fluid_data = []
+    for labels in y:
+        if len(labels) > 1:
+            fluid_data.append(', '.join(labels))
+        else:
+            fluid_data.append(labels[0])
+    df['fluid'] = fluid_data
 
-    fig = visualize_tsne(df)
-
-    return fig
-
+    # Visualize
+    visualize_tsne(df)
 
 def prepare_data(protein_df: pd.DataFrame,
-                 identifying_proteins: list[str] = None,
+                 filter_proteins: list[str] = None,
                  multilabel: bool = True) -> Tuple[np.ndarray, list[str]]:
     # Get sample columns
     sample_columns = get_sample_columns(protein_df)
 
     # If identifying proteins, filter rows on these proteins
-    if identifying_proteins:
+    if filter_proteins:
         protein_df = protein_df[
-            protein_df['PG.ProteinDescriptions'].isin(identifying_proteins)
+            protein_df['PG.ProteinDescriptions'].isin(filter_proteins)
         ]
 
     # Define feature vector x
@@ -129,7 +147,8 @@ def add_simulated_mixtures(protein_df: pd.DataFrame,
     # Loop over nr of artificial mixtures to add
     for i in range(n):
         # Choose 2 random fluids
-        fluid1, fluid2 = np.random.choice(BODY_FLUIDS, 2)
+        fluid1, fluid2 = np.random.choice(BODY_FLUIDS, 2, replace=False)
+        print(fluid1, fluid2)
 
         # Choose a random other sample per fluid
         fluid1_sample = np.random.choice([x for x in sample_columns
@@ -141,15 +160,17 @@ def add_simulated_mixtures(protein_df: pd.DataFrame,
 
         # Get all proteins in the chosen samples and set random proteins to False
         fluid1_sample = protein_df[fluid1_sample]
-        fluid1_sample[fluid1_sample.sample(n=np.random.randint(0, 10)).index] = False
+        # fluid1_sample[fluid1_sample.sample(n=np.random.randint(0, len(fluid1_sample))).index] = False
         fluid2_sample = protein_df[fluid2_sample]
-        fluid2_sample[fluid2_sample.sample(n=np.random.randint(0, 10)).index] = False
+        # fluid2_sample[fluid2_sample.sample(n=np.random.randint(0, len(fluid2_sample))).index] = False
 
         # Combine new sample into single sample
         combined_sample = fluid1_sample | fluid2_sample
 
         # Define a name for the new sample
         sample_name = f'artificial{i}_{fluid1}_{fluid2}_sample'
+
+        print(sample_name)
 
         # Add sample to dataframe as a new column
         protein_df[sample_name] = combined_sample
@@ -203,7 +224,8 @@ def run_model(pure_protein_df: pd.DataFrame,
     # Otherwise use default sklearn OneVsRest model
     else:
         # Initialize model
-        model = OneVsRestClassifier(estimator)
+        # model = OneVsRestClassifier(estimator)
+        model = LabelPowerset(estimator)
 
         # Fit model
         model.fit(x_train, y_train_transformed)
@@ -285,3 +307,36 @@ class CustomOneVsRestClassifier:
             predictions[i] = fluid_estimator.predict(x)
 
         return predictions.T
+
+
+class RelativeProteinFrequencyModel:
+
+    def __init__(self):
+        self.id_protein_counts = None
+
+    def fit(self, identifying_proteins):
+        # Get nr of identifying proteins per fluid
+        self.id_protein_counts = identifying_proteins.groupby('body fluid').count()['PG.ProteinDescriptions']
+
+    def predict(self, protein_df):
+        # Get sample columns
+        sample_columns = get_sample_columns(protein_df)
+
+        # Store predictions
+        predictions = []
+
+        # Nr of proteins per sample
+        sample_counts = protein_df[sample_columns].sum(axis=0)
+
+        # Loop over samples
+        for i in range(len(sample_counts)):
+            # Divide nr of proteins in sample by nr of identifying proteins
+            relative_nr = ((sample_counts[i] / self.id_protein_counts)
+                           .sort_values(ascending=False))
+
+            st.write(relative_nr)
+
+            # Store
+            predictions.append(relative_nr)
+
+        return predictions

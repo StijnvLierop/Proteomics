@@ -13,15 +13,19 @@ from typing import Tuple, Mapping
 from utils import columns_to_labels, fig2img, get_sample_columns, column2fluid
 from constants import BODY_FLUIDS
 
+
 def visualize_tsne(df: pd.DataFrame) -> Figure:
+    print(df)
+
     # Visualize results
     fig = px.scatter(df,
                      x='x',
                      y='y',
-                     color='body fluid',
+                     color='fluid',
                      title="T-SNE projection of pure samples")
 
-    return fig
+    st.plotly_chart(fig)
+
 
 def protein_counts_per_fluid_dist(proteins_per_pure_sample: pd.DataFrame) \
         -> Figure:
