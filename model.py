@@ -190,6 +190,7 @@ class RelativeProteinFrequencyModel:
 
         # Store predictions
         predictions = []
+        scores = []
 
         # Loop over samples
         for sample in sample_columns:
@@ -204,5 +205,6 @@ class RelativeProteinFrequencyModel:
             selected_fluids = [x[0] for x in sorted(relative_proteins.items(), key=lambda x:x[1])[-2:]]
 
             predictions.append(selected_fluids)
+            scores.append(sorted(relative_proteins.items(), key=lambda x:x[1]))
 
-        return predictions
+        return predictions, scores

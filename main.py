@@ -237,7 +237,7 @@ if __name__ == '__main__':
         # Perform predictions
         m = RelativeProteinFrequencyModel()
         m.fit(identifying_proteins)
-        preds = m.predict(mix_protein_df)
+        preds, scores = m.predict(mix_protein_df)
         mlb = MultiLabelBinarizer()
         preds_transformed = mlb.fit_transform(preds)
 
@@ -255,13 +255,15 @@ if __name__ == '__main__':
         # Calculate and show false positives and negatives
         st.subheader("False Positives and False Negatives")
         sample_names = get_sample_columns(mix_protein_df)
-        for i, (pred, y_test) in enumerate(zip(preds, y_test)):
-            if pred != y_test:
+        for i, (pred, y_test, score) in enumerate(zip(preds, y_test, scores)):
+            if len(set(pred).difference(set(y_test))) > 0:
                 st.write(sample_names[i])
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write("Predicted")
                     st.write(pred)
+                    st.write(score)
                 with col2:
                     st.write("True")
                     st.write(y_test)
+                    st.write(score)
