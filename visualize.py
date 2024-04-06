@@ -11,6 +11,7 @@ import numpy as np
 import plotly.express as px
 from plotly.graph_objects import Figure
 from typing import Tuple, Mapping
+from plotly import graph_objects as go
 
 from utils import columns_to_labels, fig2data, get_sample_columns, column2fluid
 from constants import BODY_FLUIDS, COLOR_MAPPING
@@ -27,7 +28,7 @@ def visualize_tsne(df: pd.DataFrame) -> None:
     interactive_fig = px.scatter(df,
                                  x='x',
                                  y='y',
-                                 color='body fluid',
+                                 color='fluid',
                                  title="t-SNE projection of pure samples",
                                  labels={'x': 't-SNE feature 1',
                                          'y': 't-SNE feature 2'},
@@ -40,27 +41,6 @@ def visualize_tsne(df: pd.DataFrame) -> None:
     interactive_fig.update_xaxes(showgrid=True)
     interactive_fig.update_yaxes(showgrid=True)
     st.plotly_chart(interactive_fig)
-
-    import io
-    # # image_data = io.BytesIO()
-    # image_data = interactive_fig.to_image(format='PNG')
-    #
-    # st.download_button("Download Figure",
-    #                    data=image_data,
-    #                    mime="image/png",
-    #                    key="t-SNE_pure_figure")
-
-def visualize_tsne(df: pd.DataFrame) -> Figure:
-    print(df)
-
-    # Visualize results
-    fig = px.scatter(df,
-                     x='x',
-                     y='y',
-                     color='fluid',
-                     title="T-SNE projection of pure samples")
-
-    st.plotly_chart(fig)
 
 def protein_counts_per_fluid_dist(proteins_per_pure_sample: pd.DataFrame) \
         -> None:
@@ -79,44 +59,27 @@ def protein_counts_per_fluid_dist(proteins_per_pure_sample: pd.DataFrame) \
         columns=['count', 'fluid'])
 
     # Make figure
-    interactive_fig = px.box(protein_counts_per_fluid,
-                             x='count',
-                             color='fluid',
-                             title="Number of identified proteins "
-                                   "per body fluid",
-                             labels={'count': "Number of proteins",
-                                     'fluid': "Body fluid"},
-                             color_discrete_map=COLOR_MAPPING)
+    interactive_fig = go.Figure()
+    for fluid in fluids:
+        interactive_fig.add_trace(
+            go.Box(x=protein_counts_per_fluid.loc[
+                protein_counts_per_fluid['fluid'] == fluid,
+                'count'].values,
+                   name=fluid,
+                   fillcolor=COLOR_MAPPING[fluid.split(' ')[0]],
+                   line=dict(color=COLOR_MAPPING[fluid.split(' ')[0]])),
+        )
+    interactive_fig.update_layout(showlegend=False)
+    interactive_fig.update_layout(title="Number of identified "
+                                        "proteins per body fluid")
+    interactive_fig.update_layout(xaxis_title= "Number of proteins",
+                                  yaxis_title="Body fluid")
     interactive_fig.update_layout(title_x=0.25)
     interactive_fig.update_layout(font_family='Times New Roman',
                                   title_font_family='Times New Roman')
     interactive_fig.update_xaxes(showgrid=True)
     interactive_fig.update_yaxes(showgrid=False)
     st.plotly_chart(interactive_fig)
-
-    # # Make publication figure
-    # pub_figure, ax = plt.subplots(figsize=(8, 4))
-    # sns.boxplot(protein_counts_per_fluid,
-    #             x='count',
-    #             hue='fluid',
-    #             ax=ax,
-    #             palette=COLOR_MAPPING,
-    #             zorder=3)
-    # sns.despine(pub_figure)
-    # ax.set(xlabel='Number of proteins',
-    #        title="Number of identified proteins per body fluid")
-    # ax.grid(axis='x', zorder=0)
-    # plt.legend(title='Body fluid',
-    #            bbox_to_anchor=(1.3, 0.5),
-    #            loc='center right')
-    # plt.tight_layout()
-    #
-    # # Enable download button
-    # figure_data = fig2data(pub_figure)
-    # st.download_button("Download Figure",
-    #                    data=figure_data,
-    #                    mime="image/png",
-    #                    key="protein_count_figure")
 
 
 def visualize_metrics(metrics: dict[str, float]) -> None:

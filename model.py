@@ -151,7 +151,6 @@ def add_simulated_mixtures(protein_df: pd.DataFrame,
     for i in range(n):
         # Choose 2 random fluids
         fluid1, fluid2 = np.random.choice(BODY_FLUIDS, 2, replace=False)
-        print(fluid1, fluid2)
 
         # Choose a random other sample per fluid
         fluid1_sample = np.random.choice([x for x in sample_columns
@@ -198,8 +197,8 @@ class RelativeProteinFrequencyModel:
             for fluid in BODY_FLUIDS:
                 id_proteins = self.identifying_proteins.loc[self.identifying_proteins['body fluid'] == fluid, 'PG.ProteinDescriptions'].to_list()
                 mix_proteins = protein_df.loc[protein_df[sample], 'PG.ProteinDescriptions'].to_list()
-                overlap_proteins = set(id_proteins).intersection(set(mix_proteins))
-                relative_proteins[fluid] = len(overlap_proteins) / len(id_proteins)
+                overlap_proteins = set(mix_proteins).intersection(set(id_proteins))
+                relative_proteins[fluid] = float(len(overlap_proteins)) / float(len(id_proteins))
 
             # Select top 2 as present in fluid
             selected_fluids = [x[0] for x in sorted(relative_proteins.items(), key=lambda x:x[1])[-2:]]

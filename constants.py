@@ -2,7 +2,7 @@
 BODY_FLUIDS = ["saliva", "semen", "vaginalfluid", "urine", "blood"]
 
 # Define color mapping for visualizations
-COLOR_MAPPING = {'blood': 'red',
+COLOR_MAPPING = {'blood': '#FF0000',
                  'saliva': 'lightblue',
                  'vaginalfluid': 'green',
                  'urine': 'orange',
