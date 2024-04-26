@@ -5,7 +5,7 @@ import streamlit as st
 from pyparsing import results
 
 from utils import column2fluid, \
-    get_sample_columns, pure_is_in_mixture
+    get_sample_columns, sample_name_to_participant_fluid
 from constants import BODY_FLUIDS
 
 
@@ -370,13 +370,15 @@ def filter_on_chemical_vars(df: pd.DataFrame) -> pd.DataFrame:
 def var_agreement(df: pd.DataFrame,
                   pure_column: str,
                   mix_column: str) -> float:
-    return (df[pure_column] == df[mix_column]).mean()
+    return (df[mix_column] == df[pure_column]).mean()
 
 
 def get_sample_agreements(df: pd.DataFrame) -> pd.DataFrame:
     # Identify pure and mix samples
-    pure_samples = [x for x in get_sample_columns(df) if len(column2fluid(x)) == 1]
-    mix_samples = [x for x in get_sample_columns(df) if len(column2fluid(x)) > 1]
+    pure_samples = [x for x in get_sample_columns(df)
+                    if len(column2fluid(x)) == 1]
+    mix_samples = [x for x in get_sample_columns(df)
+                   if len(column2fluid(x)) > 1]
 
     # Store results
     results = {}
@@ -398,3 +400,43 @@ def get_sample_agreements(df: pd.DataFrame) -> pd.DataFrame:
     df = pd.DataFrame(results).astype(float)
 
     return df
+
+def get_informative_vars(df: pd.DataFrame) -> pd.DataFrame:
+    # Identify pure and mix samples
+    pure_samples = [x for x in get_sample_columns(df) if
+                    len(column2fluid(x)) == 1]
+    mix_samples = [x for x in get_sample_columns(df) if
+                   len(column2fluid(x)) > 1]
+
+    # Store vars
+    results = pd.DataFrame(columns=['Variation', 'Mix Sample', 'Pure Sample'])
+
+    # Loop over variations
+    for var in df['Variation'].unique():
+        # Check if var only in one pure sample
+        if df.loc[df['Variation'] == var, pure_samples].iloc[0].sum() != 1:
+            continue
+
+        # Get pure sample that var occurs in
+        pure_sample = pure_samples[
+            (df.loc[df['Variation'] == var, pure_samples].iloc[0]).argmax()
+        ]
+
+        # Get mix samples that var occurs in
+        if df.loc[df['Variation'] == var, mix_samples].iloc[0].sum() != 1:
+            continue
+
+        # Get mix sample that var occurs in
+        mix_sample = mix_samples[
+            (df.loc[df['Variation'] == var, mix_samples].iloc[0]).argmax()
+        ]
+
+        # Make sure that the variation is from the same individual
+        if (sample_name_to_participant_fluid(pure_sample, 'saliva')
+                not in mix_sample):
+            continue
+
+        # Add var to list of vars
+        results.loc[len(results)] = [var, mix_sample, pure_sample]
+
+    return results

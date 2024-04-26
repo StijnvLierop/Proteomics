@@ -1,11 +1,13 @@
 import pandas as pd
 import streamlit as st
 
-from analysis import filter_on_chemical_vars, get_sample_agreements
+from analysis import (filter_on_chemical_vars,
+                      get_sample_agreements,
+                      get_informative_vars)
 from utils import (get_sample_columns,
                    preprocess_variations_df,
                    sample_name_to_participant_fluid)
-from sklearn.metrics import accuracy_score, top_k_accuracy_score
+from sklearn.metrics import accuracy_score
 
 if __name__ == '__main__':
     # Set wide page layout
@@ -56,3 +58,9 @@ if __name__ == '__main__':
         # Print metrics
         st.write("When using highest agreement score as prediction:")
         st.write("Accuracy:", accuracy_score(true_values, predictions))
+
+        # Variations in mix and pure sample not in other pure samples
+        informative_vars = get_informative_vars(df)
+        st.write("Variations found in only one pure sample and only one "
+                 "mix sample from the same individual:")
+        st.write(informative_vars)
