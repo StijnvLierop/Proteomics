@@ -54,6 +54,18 @@ def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def preprocess_variations_df(df: pd.DataFrame) -> pd.DataFrame:
+    # Get sample columns
+    sample_columns = [x for x in df.columns if "PEP.Quantity" in x]
+
+    # Rename sample columns
+    for column in sample_columns:
+        df.rename(columns={column: column.replace('vagfluid', 'vaginalfluid')
+                  + "_sample"},
+                  inplace=True)
+
+    return df
+
 
 def exclude_samples(df: pd.DataFrame,
                     samples_to_exclude: Iterable[str]) -> pd.DataFrame:
@@ -98,3 +110,10 @@ def get_unique_labels(body_fluids: Iterable[str]) -> list[str]:
         labels.append(f"{fluid} predicted")
 
     return labels
+
+def sample_name_to_participant_fluid(sample_name: str,
+                                     fluid: str) -> str:
+    elements = sample_name.split('_')
+    result = [x for x in elements if fluid in x][0]
+    return result
+

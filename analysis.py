@@ -289,8 +289,8 @@ def pure_mixture_diff(
 
             # Get proteins in mixture
             proteins_mixture = (proteins_per_mixture_sample.loc[
-                proteins_per_mixture_sample[mixture],
-                'PG.ProteinDescriptions']
+                                    proteins_per_mixture_sample[mixture],
+                                    'PG.ProteinDescriptions']
                                 .to_list())
 
             # Get proteins in mixture not in fluid of pure samples
@@ -355,3 +355,46 @@ def gini_impurity(counts: np.array(int, ndmin=1)) -> float:
     gi = 1 - np.sum(probs_sq)
 
     return gi
+
+
+def filter_on_chemical_vars(df: pd.DataFrame) -> pd.DataFrame:
+    chemical_vars = ['IL', 'LI', 'KQ', 'QK', 'ND',
+                     'QE', 'MF', 'PI', 'PL', 'CS', 'KR']
+
+    df = df[df.apply(lambda row: row['Variation'][0] + row['Variation'][-1]
+                                 not in chemical_vars, axis=1)]
+
+    return df
+
+
+def var_agreement(df: pd.DataFrame,
+                  pure_column: str,
+                  mix_column: str) -> float:
+    return (df[pure_column] == df[mix_column]).mean()
+
+
+def get_sample_agreements(df: pd.DataFrame) -> pd.DataFrame:
+    # Identify pure and mix samples
+    pure_samples = [x for x in get_sample_columns(df) if len(column2fluid(x)) == 1]
+    mix_samples = [x for x in get_sample_columns(df) if len(column2fluid(x)) > 1]
+
+    # Store results
+    results = {}
+
+    # Loop over mix samples
+    for mix in mix_samples:
+
+        # Store results
+        mix_results = {}
+
+        # Calculate agreement with every pure sample
+        for pure in pure_samples:
+            mix_results[pure] = var_agreement(df, pure, mix)
+
+        # Add to results
+        results[mix] = mix_results
+
+    # Store results in dataframe
+    df = pd.DataFrame(results).astype(float)
+
+    return df
