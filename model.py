@@ -3,7 +3,7 @@ import sklearn.base
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from typing import Tuple, Mapping
+from typing import Tuple, Mapping, List
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -80,6 +80,32 @@ def prepare_data(protein_df: pd.DataFrame,
         y = [column2fluid(x)[0] for x in sample_columns]
 
     return x, y
+
+
+def prepare_data_new(protein_df: pd.DataFrame,
+                     indicator: str) -> Tuple[np.ndarray, list[Mapping[str,str]]]:
+    # Get sample columns
+    sample_columns = get_sample_columns(protein_df, indicator=indicator)
+
+    # Define feature vector x
+    x = np.array(protein_df[sample_columns].T)
+
+    # Get labels
+    y = [extract_variables(x) for x in sample_columns]
+    return x, y
+
+def extract_variables(column_name: str) -> List[str]:
+    vars = column_name.split('_')[6:10]
+    if len(vars) == 3:
+        vars[2] = vars[2].split('.')[0]
+        vars.append('1')
+    else:
+        vars[-1] = '2'
+    # st.write(vars)
+    return {'Donor': vars[0],
+            'Temperature': vars[1],
+            'Time': vars[2],
+            'Unknown':vars[3]}
 
 
 def filter_on_train_proteins(pure_protein_df: pd.DataFrame,

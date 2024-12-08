@@ -112,9 +112,10 @@ def add_mean_protein_intensity(protein_freqs: pd.DataFrame,
 
 @st.cache_data
 def filter_on_peptide_count(pure_peptide_df: pd.DataFrame,
-                            peptide_threshold: int) -> pd.DataFrame:
+                            peptide_threshold: int,
+                            sample_column_indicator: str) -> pd.DataFrame:
     # Get sample columns
-    sample_columns = get_sample_columns(pure_peptide_df)
+    sample_columns = get_sample_columns(pure_peptide_df, sample_column_indicator)
 
     # Raise value error if no sample columns are found
     if len(sample_columns) == 0:

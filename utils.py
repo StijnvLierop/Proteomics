@@ -78,8 +78,8 @@ def exclude_samples(df: pd.DataFrame,
     return df
 
 
-def get_sample_columns(df: pd.DataFrame) -> list[str]:
-    sample_columns = [x for x in df.columns if x.endswith("_sample")]
+def get_sample_columns(df: pd.DataFrame, indicator: str = "_sample") -> list[str]:
+    sample_columns = [x for x in df.columns if x.endswith(indicator)]
     return sample_columns
 
 
