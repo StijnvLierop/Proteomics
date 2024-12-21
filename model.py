@@ -83,9 +83,11 @@ def prepare_data(protein_df: pd.DataFrame,
 
 
 def prepare_data_new(protein_df: pd.DataFrame,
-                     indicator: str) -> Tuple[np.ndarray, list[Mapping[str,str]]]:
-    # Get sample columns
-    sample_columns = get_sample_columns(protein_df, indicator=indicator)
+                     indicator: str,
+                     sample_columns: List[str]) -> Tuple[np.ndarray, list[Mapping[str,str]]]:
+    # Get sample columns (if no provided)
+    if not sample_columns:
+        sample_columns = get_sample_columns(protein_df, indicator=indicator)
 
     # Define feature vector x
     x = np.array(protein_df[sample_columns].T)
